@@ -895,6 +895,7 @@ new_client() {
 	echo "<tls-crypt>"
 	sed -ne '/BEGIN OpenVPN Static key/,$ p' /etc/openvpn/server/tc.key
 	echo "</tls-crypt>"
+	echo "auth-user-pass"
 	} > "$export_dir$client".ovpn
 	if [ "$export_to_home_dir" = 1 ]; then
 		chown "$SUDO_USER:$SUDO_USER" "$export_dir$client".ovpn
@@ -1059,6 +1060,21 @@ enter_client_name() {
 	done
 }
 
+enter_client_credentials() {
+	echo
+	echo "Enter username and password for the client:"
+	read -rp "Username: " client_username
+	read -rsp "Password: " client_password
+	echo
+}
+
+add_client_credentials_to_file() {
+	{
+		echo "$client_username"
+		echo "$client_password"
+	} > "/etc/openvpn/server/credentials/$client_username"
+}
+
 build_client_config() {
 	cd /etc/openvpn/server/easy-rsa/ || exit 1
 	(
@@ -1103,7 +1119,7 @@ select_client_to() {
 	until [[ "$client_num" =~ ^[0-9]+$ && "$client_num" -le "$num_of_clients" ]]; do
 		echo "$client_num: invalid selection."
 		read -rp "Client: " client_num
-		[ -z "$client_num" ] && abort_and_exit
+		[ -z "$client_num" && abort_and_exit
 	done
 	client=$(tail -n +2 /etc/openvpn/server/easy-rsa/pki/index.txt | grep "^V" | cut -d '=' -f 2 | sed -n "$client_num"p)
 }
@@ -1239,6 +1255,8 @@ check_args
 if [ "$add_client" = 1 ]; then
 	show_header
 	echo
+	enter_client_credentials
+	add_client_credentials_to_file
 	build_client_config
 	new_client
 	print_client_action added
@@ -1337,6 +1355,8 @@ else
 	case "$option" in
 		1)
 			enter_client_name
+			enter_client_credentials
+			add_client_credentials_to_file
 			build_client_config
 			new_client
 			print_client_action added
